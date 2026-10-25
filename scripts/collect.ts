@@ -1,3 +1,4 @@
+import "dotenv/config"; // tsx doesn't load .env on its own
 import { getDb } from "../src/db";
 import { collectAndDetect } from "../src/lib/pipeline";
 

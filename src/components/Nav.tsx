@@ -10,6 +10,7 @@ export function Nav({ viewer }: { viewer: AppViewer }) {
       {viewer.user && <Link href="/preferences" className={link}>My routes</Link>}
       {viewer.user && <Link href="/alerts" className={link}>Alerts</Link>}
       {!viewer.isPremium && <Link href="/upgrade" className={`${link} text-blue-600`}>Go Premium</Link>}
+      {viewer.user && isAdminEmail(viewer.user.email) && <Link href="/prices" className={link}>Prices</Link>}
       {viewer.user && isAdminEmail(viewer.user.email) && <Link href="/admin" className={link}>Admin</Link>}
     </nav>
   );

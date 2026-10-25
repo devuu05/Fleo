@@ -1,3 +1,4 @@
+import "dotenv/config"; // tsx doesn't load .env on its own
 // SAMPLE_DATA only: generate N days of historical snapshots so baselines exist.
 import { getDb } from "../src/db";
 import { runCollector, targetMonths } from "../src/lib/collector";

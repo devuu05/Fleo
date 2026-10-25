@@ -22,7 +22,9 @@ async function create(): Promise<Db> {
     await migrate(db, { migrationsFolder });
     return db as unknown as Db;
   }
-  const dir = process.env.PGLITE_DIR ?? ".data/pglite";
+  // Real and sample fares must never share a DB (generated prices would pollute real baselines).
+  const live = !!process.env.TRAVELPAYOUTS_TOKEN && process.env.SAMPLE_DATA !== "1";
+  const dir = process.env.PGLITE_DIR ?? (live ? ".data/pglite-real" : ".data/pglite");
   if (dir !== "memory") fs.mkdirSync(dir, { recursive: true });
   const client = new PGlite(dir === "memory" ? undefined : dir);
   const db = drizzlePglite(client, { schema });

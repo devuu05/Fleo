@@ -42,6 +42,19 @@ Sign-in: with no Supabase keys, `/login` is a **dev login** (type any email, not
 
 **Gating.** Premium: everything, instantly. Free: a deal is eligible if a stable hash of its id falls in a 1-in-10 bucket, and visible only 24h after `found_at`. Everything else renders as a teaser (route + cabin). Price, dates and the affiliate link are stripped on the server, so they never reach a free user's browser.
 
+## Testing with real prices (do this first)
+
+1. Get a token + marker: Travelpayouts dashboard → Tools → API (token) and your affiliate ID (marker).
+2. In `.env`: `TRAVELPAYOUTS_TOKEN=...` and `TRAVELPAYOUTS_MARKER=...`. Real mode switches on automatically and uses its own database (`.data/pglite-real`), so sample fares never mix with real ones.
+3. **Probe the API once:** `npm run probe -- DEL BKK 2027-01` prints the raw response. Check that `currency` is INR, prices look sane, and `transfers` / `duration` / `airline` / `link` are present. Then `npm run probe -- DEL BKK 2027-01 business` and confirm business prices are clearly higher than economy. If so, set `TP_BUSINESS_ENABLED=1`.
+4. Collect a small slice first (full sweep = 1,800+ calls):
+   `COLLECT_ORIGINS=DEL,BOM COLLECT_DESTINATIONS=BKK,DXB,SIN,LHR npm run collect`
+   (Windows PowerShell: set `$env:COLLECT_ORIGINS="DEL,BOM"` etc. first.)
+5. Open **/prices** (admin only; any dev-login user in dev). It lists the cheapest *stored real fares* per route/date, with data age and a link to Aviasales to compare. This works from the first run.
+6. The **Deals** feed needs history: a deal is only flagged against a 30-day median, and a baseline is trusted after 10 snapshots over 5+ days. To see deal logic fire sooner, loosen it for testing only: `BASELINE_MIN_SNAPSHOTS=2 BASELINE_MIN_SPAN_DAYS=0` and run `collect` a few times a few hours apart. Expect noisy deals until real history builds up.
+
+Remember these are cached prices from other users' searches: the same fare may no longer be bookable on Aviasales. A stale-but-cheap fare is the main false positive; live verification (Duffel) is the planned fix.
+
 ## Going live with Travelpayouts
 
 1. Put `TRAVELPAYOUTS_TOKEN` and `TRAVELPAYOUTS_MARKER` in `.env`. Sample mode switches off automatically (or force with `SAMPLE_DATA=0`).
