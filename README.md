@@ -67,10 +67,19 @@ Passwordless email magic-link via Supabase Auth (`@supabase/ssr`). Fleo's own da
 
 Flow: `/login` → `POST /auth/login` (emails the link) → `/auth/callback` (exchanges the code for a session cookie) → `src/proxy.ts` keeps the session fresh. `POST /auth/logout` signs out. Redirect targets go through `safeNext()` to block open redirects. **The Supabase path has not been exercised against a live project** (no keys in the build sandbox); only the dev login is end-to-end tested.
 
+## Admin review, preferences, alerts, payments
+
+- **Admin (`/admin`)**: with `REVIEW_REQUIRED=1`, new deals start *pending*. Approve/reject individually or "approve all". A later price drop updates a deal but never undoes an admin's decision. `/admin/transit` edits the transit-visa watch-list (enable, verify, notes, add countries). Admins = `ADMIN_EMAILS` (any dev-login user when unset, non-production only). Non-admins get a 404.
+- **My routes (`/preferences`)**: origins / destinations / cabins (empty = any), email-alert toggle, WhatsApp number (stored for later). Feeds the "For me" filter and alerts.
+- **Alerts**: after every collect run, `dispatchAlerts` emails opted-in users whose preferences match a published deal **that gating lets them see right now** (premium immediately; free users only their 1-in-10 deals after 24h). Idempotent per (user, deal, price), so a further price drop re-alerts but reruns don't. Without `RESEND_API_KEY` messages are only logged to the outbox shown at `/alerts`. Channels implement `Notifier` (`src/lib/alerts/notifier.ts`), so WhatsApp/push are drop-in additions.
+- **Premium (`/upgrade`)**: ₹1,499 one-time for 365 days (no auto-renewal), stacking on remaining time if renewed early; `users.premium_until` expires it. With Razorpay keys: server creates an order, Checkout.js pays it, `/api/billing/verify` checks the HMAC signature, and `/api/billing/webhook` (`payment.captured`, `order.paid`, secret `RAZORPAY_WEBHOOK_SECRET`) covers closed tabs. Both paths go through one idempotent `markPaid`. Without keys, a test checkout grants premium without money moving (non-production only).
+
+**Not yet verified against live services:** Supabase sign-in, Razorpay (real orders/Checkout/webhooks), and Resend delivery. The signature checks, order request shape and Resend request are unit-tested with mocks; the end-to-end flows were run using the dev login, test checkout and outbox.
+
 ## Tests
 
 `npm test` — detection boundaries (40% / ₹5,000 / 70%), median, cold start, de-dupe/re-post, filters, visa tagging, gating, backoff/rate limiter, Travelpayouts client (mocked fetch), plus an integration test of the detector on in-memory Postgres.
 
 ## Not built yet (later phases)
 
-Razorpay subscription, email/push/WhatsApp alerts, per-user route preferences, admin review page, live-price verification, social/phone login, a UI for editing `transit_rules`.
+WhatsApp/push alerts, auto-renewing subscriptions (Razorpay Subscriptions), live-price verification (Duffel), social/phone login, refunds/invoices, deployment config and scheduler, real-API verification for Travelpayouts.

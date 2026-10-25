@@ -15,6 +15,13 @@
       "when": 1792895347107,
       "tag": "0001_short_james_howlett",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792895899916,
+      "tag": "0002_noisy_shen",
+      "breakpoints": true
     }
   ]
 }

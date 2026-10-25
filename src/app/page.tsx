@@ -1,7 +1,10 @@
+import Link from "next/link";
 import { getDb } from "@/db";
 import { DealCard } from "@/components/DealCard";
+import { Nav } from "@/components/Nav";
 import { PremiumToggle } from "@/components/PremiumToggle";
 import { filterOptions, getFeed } from "@/lib/feed";
+import { getPreferences } from "@/lib/preferences";
 import { monthLabel } from "@/lib/format";
 import { sampleMode } from "@/lib/providers";
 import { devAuthEnabled } from "@/lib/auth/config";
@@ -14,8 +17,10 @@ const sel = "w-full rounded-xl border border-neutral-300 bg-transparent px-3 py-
 
 export default async function Home({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
-  const filters = { from: one(sp.from), cabin: one(sp.cabin), month: one(sp.month) };
+  const mine = one(sp.mine) === "1";
   const [db, viewer] = [await getDb(), await getViewer()];
+  const prefs = mine && viewer.user ? await getPreferences(db, viewer.user.id) : undefined;
+  const filters = { from: one(sp.from), cabin: one(sp.cabin), month: one(sp.month), prefs };
   const [items, opts] = await Promise.all([getFeed(db, filters, viewer), filterOptions(db)]);
   const unlocked = items.filter((i) => i.access === "full").length;
 
@@ -41,7 +46,16 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         </div>
       </header>
 
+      <Nav viewer={viewer} />
+      {viewer.user && (
+        <div className="mb-3 flex gap-2 text-sm">
+          <Link href="/" className={`rounded-full px-3 py-1 ${!mine ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-neutral-100 dark:bg-neutral-800"}`}>All deals</Link>
+          <Link href="/?mine=1" className={`rounded-full px-3 py-1 ${mine ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "bg-neutral-100 dark:bg-neutral-800"}`}>For me</Link>
+        </div>
+      )}
+
       <form method="get" className="mb-5 grid grid-cols-3 gap-2">
+        {mine && <input type="hidden" name="mine" value="1" />}
         <select name="from" defaultValue={filters.from ?? ""} className={sel} aria-label="Departure city">
           <option value="">Any city</option>
           {opts.origins.map(([code, city]) => <option key={code} value={code}>{city}</option>)}

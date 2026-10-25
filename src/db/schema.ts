@@ -58,6 +58,8 @@ export const deals = pgTable(
     visaWarnings: jsonb("visa_warnings").$type<{ country: string; note: string }[]>().notNull().default([]),
     deepLink: text("deep_link"),
     source: text("source").notNull(),
+    status: text("status").notNull().default("published"), // pending | published | rejected
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     foundAt: timestamp("found_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -72,6 +74,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   authId: text("auth_id").unique(), // Supabase auth.users.id (null for dev-mode users)
   isPremium: boolean("is_premium").notNull().default(false),
+  premiumUntil: timestamp("premium_until", { withTimezone: true }), // null + isPremium = manual/lifetime grant
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -89,3 +92,43 @@ export type Route = typeof routes.$inferSelect;
 export type Snapshot = typeof priceSnapshots.$inferSelect;
 export type DealRow = typeof deals.$inferSelect;
 export type TransitRule = typeof transitRules.$inferSelect;
+
+export const userPreferences = pgTable("user_preferences", {
+  userId: integer("user_id").primaryKey().references(() => users.id),
+  origins: jsonb("origins").$type<string[]>().notNull().default([]), // [] = any
+  destinations: jsonb("destinations").$type<string[]>().notNull().default([]),
+  cabins: jsonb("cabins").$type<string[]>().notNull().default([]),
+  alertsEmail: boolean("alerts_email").notNull().default(true),
+  whatsappNumber: text("whatsapp_number"), // stored for the WhatsApp phase; not used yet
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Outbox: every alert we decide to send, once per (user, deal, channel, price).
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id),
+    dealId: integer("deal_id").notNull().references(() => deals.id),
+    channel: text("channel").notNull(), // email | whatsapp | push
+    priceInr: integer("price_inr").notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    status: text("status").notNull(), // sent | logged (no provider configured) | failed
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("alerts_once_idx").on(t.userId, t.dealId, t.channel, t.priceInr)],
+);
+
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  provider: text("provider").notNull(), // razorpay | test
+  orderId: text("order_id").notNull().unique(),
+  paymentId: text("payment_id"),
+  amountInr: integer("amount_inr").notNull(),
+  status: text("status").notNull().default("created"), // created | paid
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+});

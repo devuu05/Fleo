@@ -1,10 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Db } from "../db";
 import { deals, routes } from "../db/schema";
 import { config, DESTINATIONS, ORIGIN_CITY } from "./config";
 import { accessFor, hoursUntilFree, type Access, type Viewer } from "./gating";
 
-export interface FeedFilters { from?: string; cabin?: string; month?: string }
+export interface FeedFilters { from?: string; cabin?: string; month?: string; prefs?: { origins: string[]; destinations: string[]; cabins: string[] } }
 
 interface Base { id: number; access: Access; origin: string; originCity: string; destination: string; destinationCity: string; cabin: string; foundAt: string }
 export interface FullDeal extends Base {
@@ -22,7 +22,12 @@ export type FeedItem = FullDeal | TeaserDeal;
  * reach the browser of a viewer who isn't entitled to them.
  */
 export async function getFeed(db: Db, filters: FeedFilters, viewer: Viewer, now = new Date(), limit = 100): Promise<FeedItem[]> {
+  const pf = filters.prefs;
   const conds = [
+    eq(deals.status, "published"),
+    pf?.origins.length ? inArray(routes.origin, pf.origins) : undefined,
+    pf?.destinations.length ? inArray(routes.destination, pf.destinations) : undefined,
+    pf?.cabins.length ? inArray(deals.cabin, pf.cabins) : undefined,
     filters.from ? eq(routes.origin, filters.from) : undefined,
     filters.cabin === "economy" || filters.cabin === "business" ? eq(deals.cabin, filters.cabin) : undefined,
     filters.month && /^\d{4}-\d{2}$/.test(filters.month) ? eq(deals.departMonth, filters.month) : undefined,
@@ -47,6 +52,6 @@ export async function getFeed(db: Db, filters: FeedFilters, viewer: Viewer, now 
 }
 
 export async function filterOptions(db: Db) {
-  const rows = await db.selectDistinct({ month: deals.departMonth }).from(deals).orderBy(deals.departMonth);
+  const rows = await db.selectDistinct({ month: deals.departMonth }).from(deals).where(eq(deals.status, "published")).orderBy(deals.departMonth);
   return { months: rows.map((r) => r.month), origins: Object.entries(ORIGIN_CITY), destinations: DESTINATIONS };
 }

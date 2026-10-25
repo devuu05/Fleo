@@ -9,6 +9,7 @@ export interface DetectOptions {
   now?: Date;
   /** snapshots newer than this are "candidates"; older ones form the baseline */
   lookbackHours?: number;
+  requireReview?: boolean; // new deals start 'pending' until an admin approves (default: REVIEW_REQUIRED=1)
   verifier?: FareVerifier; // future: live price check (e.g. Duffel) before publishing
   log?: (m: string) => void;
 }
@@ -84,7 +85,9 @@ export async function runDetector(db: Db, o: DetectOptions = {}) {
       airline: c.airline, stops: c.stops, durationMinutes: c.durationMinutes, isErrorFare: ev.isErrorFare,
       visaWarnings: visaWarnings(c.transitCountries, c.stops, rules), deepLink: c.deepLink, source: c.source, foundAt: now,
     };
-    await db.insert(deals).values(values).onConflictDoUpdate({
+    // status only applies on first insert: a re-post must not undo an admin's approve/reject
+    const status = (o.requireReview ?? config.review.required) ? "pending" : "published";
+    await db.insert(deals).values({ ...values, status }).onConflictDoUpdate({
       target: [deals.routeId, deals.cabin, deals.departDate, deals.returnDate],
       set: values,
     });

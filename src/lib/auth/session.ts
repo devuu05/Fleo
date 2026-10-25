@@ -2,9 +2,10 @@ import { cookies } from "next/headers";
 import { getDb } from "../../db";
 import { DEV_COOKIE, devAuthEnabled, isEmail, supabaseConfigured } from "./config";
 import { upsertUser } from "./users";
+import { isPremiumNow } from "../billing/premium";
 import { supabaseServer } from "../supabase/server";
 
-export interface SessionUser { id: number; email: string; isPremium: boolean }
+export interface SessionUser { id: number; email: string; isPremium: boolean; premiumUntil: Date | null }
 
 /** The signed-in app user (from Supabase, or the dev cookie), or null for anonymous visitors. */
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -20,5 +21,5 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!identity) return null;
 
   const u = await upsertUser(await getDb(), identity);
-  return { id: u.id, email: u.email, isPremium: u.isPremium };
+  return { id: u.id, email: u.email, isPremium: isPremiumNow(u), premiumUntil: u.premiumUntil };
 }

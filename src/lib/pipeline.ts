@@ -1,6 +1,7 @@
 import type { Db } from "../db";
 import { runCollector } from "./collector";
 import { runDetector } from "./detector";
+import { dispatchAlerts } from "./alerts/dispatch";
 import { createProvider, sampleMode } from "./providers";
 import { seedRoutes, seedTransitRules } from "./seed";
 
@@ -14,5 +15,6 @@ export async function collectAndDetect(db: Db, log: (m: string) => void = consol
   const collected = await runCollector(db, { provider: createProvider({ plant: true, asOf: now }), now, log });
   log(`collected: ${JSON.stringify(collected)}`);
   const detected = await runDetector(db, { now, log: (m) => log(`detected: ${m}`) });
-  return { collected, detected };
+  const alerted = await dispatchAlerts(db, { now, log: (m) => log(`alerts: ${m}`) });
+  return { collected, detected, alerted };
 }

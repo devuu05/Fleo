@@ -26,6 +26,14 @@ export const config = {
     requestsPerSecond: num(process.env.COLLECTOR_RPS, 3),
     maxRetries: 5,
   },
+  review: {
+    // true => new deals start "pending" and only go live after an admin approves them
+    required: process.env.REVIEW_REQUIRED === "1",
+  },
+  billing: {
+    planAmountInr: num(process.env.PLAN_PRICE_INR, 1499),
+    planDays: 365,
+  },
   currency: "INR",
 };
 
