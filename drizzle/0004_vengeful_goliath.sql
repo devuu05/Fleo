@@ -1,0 +1,1 @@
+ALTER TABLE "deals" ADD COLUMN "verified_at" timestamp with time zone;

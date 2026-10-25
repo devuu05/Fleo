@@ -29,6 +29,13 @@
       "when": 1792898184013,
       "tag": "0003_gray_sauron",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792899559213,
+      "tag": "0004_vengeful_goliath",
+      "breakpoints": true
     }
   ]
 }

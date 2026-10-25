@@ -11,7 +11,7 @@ export interface FullDeal extends Base {
   access: "full";
   departDate: string; returnDate: string | null; priceInr: number; baselineInr: number; pctBelow: number; savingsInr: number;
   airline: string | null; stops: number; durationMinutes: number | null; isErrorFare: boolean;
-  visaWarnings: { country: string; note: string }[]; deepLink: string | null; observedAt: string | null; gate: string | null;
+  visaWarnings: { country: string; note: string }[]; deepLink: string | null; observedAt: string | null; gate: string | null; verifiedAt: string | null;
 }
 export interface TeaserDeal extends Base { access: "locked" | "delayed"; hoursUntilFree?: number }
 export type FeedItem = FullDeal | TeaserDeal;
@@ -46,7 +46,7 @@ export async function getFeed(db: Db, filters: FeedFilters, viewer: Viewer, now 
     return {
       ...base, access: "full", departDate: d.departDate, returnDate: d.returnDate || null, priceInr: d.priceInr,
       baselineInr: d.baselineInr, pctBelow: d.pctBelow, savingsInr: d.savingsInr, airline: d.airline, stops: d.stops,
-      durationMinutes: d.durationMinutes, isErrorFare: d.isErrorFare, visaWarnings: d.visaWarnings, deepLink: d.deepLink, observedAt: d.observedAt?.toISOString() ?? null, gate: d.gate,
+      durationMinutes: d.durationMinutes, isErrorFare: d.isErrorFare, visaWarnings: d.visaWarnings, deepLink: d.deepLink, observedAt: d.observedAt?.toISOString() ?? null, gate: d.gate, verifiedAt: d.verifiedAt?.toISOString() ?? null,
     };
   });
 }

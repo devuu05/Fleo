@@ -1,6 +1,6 @@
 import { and, gte, lte, sql } from "drizzle-orm";
 import type { Db } from "../db";
-import { deals, priceSnapshots, transitRules } from "../db/schema";
+import { deals, priceSnapshots, routes, transitRules } from "../db/schema";
 import { config } from "./config";
 import { baselineUsable, evaluate, isStale, passesFilters, shouldRepost, visaWarnings, type BaselineStats } from "./detector-core";
 import type { FareVerifier } from "./types";
@@ -54,37 +54,61 @@ export async function runDetector(db: Db, o: DetectOptions = {}) {
     if (!cur || c.priceInr < cur.priceInr) cheapest.set(k, c);
   }
 
+  // only deals that can still be flown matter for de-duplication (keeps this query small as history grows)
   const existing = new Map<string, number>();
-  for (const d of await db.select().from(deals)) existing.set(key(d.routeId, d.cabin, d.departDate, d.returnDate), d.priceInr);
+  const today = now.toISOString().slice(0, 10);
+  for (const d of await db.select().from(deals).where(gte(deals.departDate, today))) existing.set(key(d.routeId, d.cabin, d.departDate, d.returnDate), d.priceInr);
+  const routeById = new Map((await db.select().from(routes)).map((r) => [r.id, r]));
 
-  const stats = { candidates: cheapest.size, noBaseline: 0, notDeal: 0, filtered: 0, duplicate: 0, unverified: 0, stale: 0, created: 0, reposted: 0 };
+  const stats = { candidates: cheapest.size, noBaseline: 0, notDeal: 0, filtered: 0, duplicate: 0, unverified: 0, verifiedGone: 0, verifyDeferred: 0, stale: 0, created: 0, reposted: 0 };
 
+  // 1) cheap checks first, no network
+  const found: { c: (typeof candidates)[number]; baseline: number }[] = [];
   for (const c of cheapest.values()) {
     const b = baselines.get(key(c.routeId, c.departMonth, c.cabin));
     if (!baselineUsable(b)) { stats.noBaseline++; continue; }
     if (isStale(c.observedAt, now)) { stats.stale++; continue; }
-    const ev = evaluate(c.priceInr, b.medianInr);
-    if (!ev.isDeal) { stats.notDeal++; continue; }
+    if (!evaluate(c.priceInr, b.medianInr).isDeal) { stats.notDeal++; continue; }
     if (!passesFilters(c)) { stats.filtered++; continue; }
-
-    const ret = c.returnDate ?? "";
-    const prev = existing.get(key(c.routeId, c.cabin, c.departDate, ret));
+    const prev = existing.get(key(c.routeId, c.cabin, c.departDate, c.returnDate ?? ""));
     if (!shouldRepost(prev, c.priceInr)) { stats.duplicate++; continue; }
+    found.push({ c, baseline: b.medianInr });
+  }
+  // 2) biggest discounts first, so a limited live-check budget goes to the best deals
+  found.sort((x, y) => (y.baseline - y.c.priceInr) / y.baseline - (x.baseline - x.c.priceInr) / x.baseline);
+
+  let verifyBudget = config.verification.maxPerRun;
+  for (const { c, baseline } of found) {
+    let price = c.priceInr, verifiedAt: Date | null = null;
+    const route = routeById.get(c.routeId)!;
 
     if (o.verifier) {
+      if (verifyBudget-- <= 0) { stats.verifyDeferred++; continue; } // picked up on a later run
       const v = await o.verifier.verify({
-        origin: "", destination: "", cabin: c.cabin as "economy" | "business", departDate: c.departDate, returnDate: c.returnDate,
-        priceInr: c.priceInr, airline: c.airline, stops: c.stops, durationMinutes: c.durationMinutes,
+        origin: route.origin, destination: route.destination, cabin: c.cabin as "economy" | "business", departDate: c.departDate,
+        returnDate: c.returnDate, priceInr: c.priceInr, airline: c.airline, stops: c.stops, durationMinutes: c.durationMinutes,
         transitCountries: c.transitCountries, deepLink: c.deepLink, observedAt: c.observedAt, gate: c.gate,
       });
-      if (!v.ok) { stats.unverified++; continue; }
+      if (!v.ok) { if (v.reason === "error") stats.unverified++;
+        else stats.verifiedGone++;
+        continue; }
+      if (v.livePriceInr) price = v.livePriceInr; // the live price is the truth, not the cached one
+      verifiedAt = now;
     }
+
+    // re-evaluate with the price we'll actually publish (it may have moved)
+    const ev = evaluate(price, baseline);
+    if (!ev.isDeal) { stats.notDeal++; continue; }
+    const ret = c.returnDate ?? "";
+    const prevNow = existing.get(key(c.routeId, c.cabin, c.departDate, ret));
+    if (!shouldRepost(prevNow, price)) { stats.duplicate++; continue; }
 
     const values = {
       routeId: c.routeId, cabin: c.cabin, departDate: c.departDate, departMonth: c.departMonth, returnDate: ret,
-      priceInr: c.priceInr, baselineInr: Math.round(b.medianInr), pctBelow: ev.pctBelow, savingsInr: ev.savingsInr,
+      priceInr: price, baselineInr: Math.round(baseline), pctBelow: ev.pctBelow, savingsInr: ev.savingsInr,
       airline: c.airline, stops: c.stops, durationMinutes: c.durationMinutes, isErrorFare: ev.isErrorFare,
-      visaWarnings: visaWarnings(c.transitCountries, c.stops, rules), deepLink: c.deepLink, observedAt: c.observedAt, gate: c.gate, source: c.source, foundAt: now,
+      visaWarnings: visaWarnings(c.transitCountries, c.stops, rules), deepLink: c.deepLink, observedAt: c.observedAt, gate: c.gate,
+      verifiedAt, source: c.source, foundAt: now,
     };
     // status only applies on first insert: a re-post must not undo an admin's approve/reject
     const status = (o.requireReview ?? config.review.required) ? "pending" : "published";
@@ -92,9 +116,9 @@ export async function runDetector(db: Db, o: DetectOptions = {}) {
       target: [deals.routeId, deals.cabin, deals.departDate, deals.returnDate],
       set: values,
     });
-    if (prev === undefined) stats.created++;
+    if (prevNow === undefined) stats.created++;
     else stats.reposted++;
-    existing.set(key(c.routeId, c.cabin, c.departDate, ret), c.priceInr);
+    existing.set(key(c.routeId, c.cabin, c.departDate, ret), price);
   }
   o.log?.(JSON.stringify(stats));
   return stats;

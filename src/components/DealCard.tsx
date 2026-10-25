@@ -47,7 +47,10 @@ export function DealCard({ deal }: { deal: FeedItem }) {
       <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
         {[d.airline, stopsLabel(d.stops), duration(d.durationMinutes)].filter(Boolean).join(" · ")}
       </p>
-      {d.observedAt && (
+      {d.verifiedAt && (
+        <p className="mt-2 text-xs font-medium text-green-700 dark:text-green-400">✓ Checked live {ageLabel(d.verifiedAt)}: this price was bookable when we posted it.</p>
+      )}
+      {d.observedAt && !d.verifiedAt && (
         <p className="mt-1 text-xs text-neutral-500">Price last seen {ageLabel(d.observedAt)}{d.gate ? ` via ${d.gate}` : ""}. Confirm on the booking page.</p>
       )}
       {d.isErrorFare && (

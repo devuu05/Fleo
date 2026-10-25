@@ -2,7 +2,8 @@ import type { Db } from "../db";
 import { runCollector } from "./collector";
 import { runDetector } from "./detector";
 import { dispatchAlerts } from "./alerts/dispatch";
-import { createProvider, sampleMode } from "./providers";
+import { createProvider, createVerifier, sampleMode } from "./providers";
+import { pruneSnapshots } from "./retention";
 import { seedRoutes, seedTransitRules } from "./seed";
 
 /** Collect fares then detect deals. Used by the CLI and the cron route. */
@@ -14,7 +15,9 @@ export async function collectAndDetect(db: Db, log: (m: string) => void = consol
   const now = new Date();
   const collected = await runCollector(db, { provider: createProvider({ plant: true, asOf: now }), now, log });
   log(`collected: ${JSON.stringify(collected)}`);
-  const detected = await runDetector(db, { now, log: (m) => log(`detected: ${m}`) });
+  const detected = await runDetector(db, { now, verifier: createVerifier(), log: (m) => log(`detected: ${m}`) });
   const alerted = await dispatchAlerts(db, { now, log: (m) => log(`alerts: ${m}`) });
-  return { collected, detected, alerted };
+  const pruned = await pruneSnapshots(db, now);
+  log(`pruned ${pruned} old snapshots`);
+  return { collected, detected, alerted, pruned };
 }

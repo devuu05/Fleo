@@ -1,4 +1,4 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import type { Db } from "../../db";
 import { alerts, deals, routes, userPreferences, users } from "../../db/schema";
 import { ORIGIN_CITY } from "../config";
@@ -10,13 +10,14 @@ import { createNotifiers, type Notifier } from "./notifier";
 
 export function composeAlert(d: {
   originCity: string; destinationCity: string; cabin: string; priceInr: number; baselineInr: number; pctBelow: number;
-  departDate: string; airline: string | null; stops: number; isErrorFare: boolean; deepLink: string | null;
+  departDate: string; airline: string | null; stops: number; isErrorFare: boolean; deepLink: string | null; verifiedAt: Date | null;
 }, siteUrl: string) {
   const subject = `${d.isErrorFare ? "⚠️ Possible error fare: " : ""}${d.originCity} → ${d.destinationCity} ${inr(d.priceInr)} (${Math.round(d.pctBelow)}% below usual)`;
   const lines = [
     `${d.originCity} → ${d.destinationCity} · ${d.cabin} · ${dateLabel(d.departDate)}`,
     `${inr(d.priceInr)} (usually ${inr(d.baselineInr)})`,
     [d.airline, stopsLabel(d.stops)].filter(Boolean).join(" · "),
+    d.verifiedAt ? "✓ Checked live when posted." : "",
     d.isErrorFare ? "Possible error fare: the airline may cancel it. Don't buy non-refundable extras until confirmed." : "",
     d.deepLink ? `Book: ${d.deepLink}` : "",
     `All deals: ${siteUrl}`,
@@ -44,6 +45,11 @@ export async function dispatchAlerts(db: Db, o: { now?: Date; lookbackDays?: num
   const subs = await db.select({ u: users, p: userPreferences }).from(userPreferences)
     .innerJoin(users, eq(userPreferences.userId, users.id)).where(eq(userPreferences.alertsEmail, true));
 
+  // one query for everything already sent, instead of one per (user, deal, channel)
+  const sentKeys = new Set<string>();
+  if (recent.length) {
+    for (const a of await db.select().from(alerts).where(inArray(alerts.dealId, recent.map(({ d }) => d.id)))) sentKeys.add(`${a.userId}|${a.dealId}|${a.channel}|${a.priceInr}`);
+  }
   const stats = { considered: 0, sent: 0, logged: 0, failed: 0, skippedGated: 0, skippedDuplicate: 0 };
   for (const { u, p } of subs) {
     const viewer = { isPremium: isPremiumNow(u, now) };
@@ -53,9 +59,9 @@ export async function dispatchAlerts(db: Db, o: { now?: Date; lookbackDays?: num
       if (accessFor({ id: d.id, foundAt: d.foundAt }, viewer, now) !== "full") { stats.skippedGated++; continue; }
 
       for (const n of notifiers) {
-        const [dup] = await db.select({ id: alerts.id }).from(alerts)
-          .where(and(eq(alerts.userId, u.id), eq(alerts.dealId, d.id), eq(alerts.channel, n.channel), eq(alerts.priceInr, d.priceInr)));
-        if (dup) { stats.skippedDuplicate++; continue; }
+        const sk = `${u.id}|${d.id}|${n.channel}|${d.priceInr}`;
+        if (sentKeys.has(sk)) { stats.skippedDuplicate++; continue; }
+        sentKeys.add(sk);
         const msg = composeAlert({ ...d, originCity: ORIGIN_CITY[r.origin] ?? r.origin, destinationCity: r.destinationCity }, siteUrl);
         let status: "sent" | "logged" | "failed" = n.live ? "sent" : "logged", error: string | null = null;
         try { await n.send({ to: u.email, ...msg }); } catch (e) { status = "failed"; error = (e as Error).message; }

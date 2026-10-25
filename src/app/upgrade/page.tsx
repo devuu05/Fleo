@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { PayButton } from "@/components/PayButton";
 import { razorpayConfigured, testCheckoutEnabled } from "@/lib/billing/razorpay";
+import { notFound } from "next/navigation";
 import { config } from "@/lib/config";
 import { dateLabel, inr } from "@/lib/format";
 import { getViewer } from "@/lib/viewer";
@@ -9,6 +10,7 @@ import { getViewer } from "@/lib/viewer";
 export const dynamic = "force-dynamic";
 
 export default async function Upgrade({ searchParams }: PageProps<"/upgrade">) {
+  if (!config.gating.enabled) notFound(); // Premium is dormant: every deal is already free for everyone
   const viewer = await getViewer();
   const paid = (await searchParams).paid === "1";
   const until = viewer.user?.premiumUntil;

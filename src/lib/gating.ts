@@ -20,9 +20,9 @@ export function accessFor(
   deal: { id: number; foundAt: Date },
   viewer: Viewer,
   now = new Date(),
-  cfg = config.gating,
+  cfg: { freeDelayHours: number; freeOneInN: number; enabled?: boolean } = config.gating,
 ): Access {
-  if (viewer.isPremium) return "full";
+  if (cfg.enabled === false || viewer.isPremium) return "full";
   if (!isFreeEligible(deal.id, cfg.freeOneInN)) return "locked";
   const ageMs = now.getTime() - deal.foundAt.getTime();
   return ageMs >= cfg.freeDelayHours * 3_600_000 ? "full" : "delayed";

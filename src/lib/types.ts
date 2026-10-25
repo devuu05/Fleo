@@ -37,5 +37,5 @@ export interface FareProvider {
  * published. Not implemented in Phase 1; the detector accepts one if provided.
  */
 export interface FareVerifier {
-  verify(fare: Fare): Promise<{ ok: boolean; livePriceInr?: number }>;
+  verify(fare: Fare): Promise<{ ok: boolean; livePriceInr?: number; reason?: string }>;
 }

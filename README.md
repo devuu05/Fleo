@@ -89,6 +89,13 @@ Flow: `/login` → `POST /auth/login` (emails the link) → `/auth/callback` (ex
 
 **Not yet verified against live services:** Supabase sign-in, Razorpay (real orders/Checkout/webhooks), and Resend delivery. The signature checks, order request shape and Resend request are unit-tested with mocks; the end-to-end flows were run using the dev login, test checkout and outbox.
 
+## Business model switch, live verification, scale notes
+
+- **`GATING_ENABLED`** (default off): every deal shows to everyone instantly, since earnings come from affiliate bookings and hiding deals only loses clicks. Premium/Razorpay stay built but hidden. Set `GATING_ENABLED=1` to bring back 1-in-10 / 24h-delay and `/upgrade`.
+- **Live check (`DUFFEL_TOKEN`)**: before a deal is published the detector asks Duffel whether the fare is bookable now, publishes the *live* price (re-checked against the baseline), and shows "✓ Checked live". Not found / price moved up = dropped; a network error = retried on the next run. At most `VERIFY_MAX_PER_RUN` live searches per run, biggest discounts first. Untested against the live Duffel API; coverage of Indian carriers is limited, so some good fares may come back "gone" just because Duffel can't sell them. Watch the `verifiedGone` count in the collect log.
+- **No compare-site links** (Google Flights / Skyscanner) on purpose: they'd send bookings away from the affiliate link.
+- **Scale**: snapshots older than `SNAPSHOT_RETENTION_DAYS` (45) are pruned each run; de-dup only loads deals that haven't departed; alert de-dup is one query per run. See the answer in the project notes for what still needs work (alert queue, feed caching, sharded collection).
+
 ## Tests
 
 `npm test` — detection boundaries (40% / ₹5,000 / 70%), median, cold start, de-dupe/re-post, filters, visa tagging, gating, backoff/rate limiter, Travelpayouts client (mocked fetch), plus an integration test of the detector on in-memory Postgres.

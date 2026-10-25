@@ -18,6 +18,8 @@ export const config = {
     maxDurationHours: num(process.env.MAX_DURATION_HOURS, 30),
   },
   gating: {
+    // false (default) = every deal visible to everyone instantly; Premium is dormant. GATING_ENABLED=1 restores free/premium limits.
+    enabled: process.env.GATING_ENABLED === "1",
     freeDelayHours: num(process.env.FREE_DELAY_HOURS, 24),
     freeOneInN: num(process.env.FREE_ONE_IN_N, 10),
   },
@@ -28,6 +30,11 @@ export const config = {
     requestsPerSecond: num(process.env.COLLECTOR_RPS, 5),
     maxRetries: 5,
   },
+  verification: {
+    toleranceFraction: num(process.env.VERIFY_TOLERANCE, 0.1), // live price may be up to 10% above the cached one
+    maxPerRun: num(process.env.VERIFY_MAX_PER_RUN, 50), // live searches cost money/quota; best deals first
+  },
+  retention: { snapshotDays: num(process.env.SNAPSHOT_RETENTION_DAYS, 45) }, // baseline needs 30
   review: {
     // true => new deals start "pending" and only go live after an admin approves them
     required: process.env.REVIEW_REQUIRED === "1",

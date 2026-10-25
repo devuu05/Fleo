@@ -7,6 +7,7 @@ import { filterOptions, getFeed } from "@/lib/feed";
 import { getPreferences } from "@/lib/preferences";
 import { monthLabel } from "@/lib/format";
 import { sampleMode } from "@/lib/providers";
+import { config } from "@/lib/config";
 import { devAuthEnabled } from "@/lib/auth/config";
 import { getViewer } from "@/lib/viewer";
 
@@ -72,7 +73,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 
       <p className="mb-3 text-xs text-neutral-500">
         {items.length} deal{items.length === 1 ? "" : "s"}
-        {!viewer.isPremium && items.length > 0 && ` · ${unlocked} unlocked on the free plan`}
+        {config.gating.enabled && !viewer.isPremium && items.length > 0 && ` · ${unlocked} unlocked on the free plan`}
       </p>
 
       <div className="space-y-4">

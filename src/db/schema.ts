@@ -61,6 +61,7 @@ export const deals = pgTable(
     deepLink: text("deep_link"),
     observedAt: timestamp("observed_at", { withTimezone: true }),
     gate: text("gate"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }), // live price check passed (null = not verified)
     source: text("source").notNull(),
     status: text("status").notNull().default("published"), // pending | published | rejected
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
