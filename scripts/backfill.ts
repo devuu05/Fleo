@@ -1,6 +1,6 @@
 import "dotenv/config"; // tsx doesn't load .env on its own
 // SAMPLE_DATA only: generate N days of historical snapshots so baselines exist.
-import { getDb } from "../src/db";
+import { closeDb, getDb } from "../src/db";
 import { runCollector, targetMonths } from "../src/lib/collector";
 import { SampleProvider } from "../src/lib/providers/sample";
 import { sampleMode } from "../src/lib/providers";
@@ -20,4 +20,4 @@ async function main() {
     console.log(`backfill -${d}d: ${r.inserted} snapshots`);
   }
 }
-main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });
+main().then(closeDb, async (e) => { console.error(e); process.exitCode = 1; await closeDb(); });

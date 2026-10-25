@@ -4,6 +4,7 @@ import type { Db } from "../db";
 export interface PriceRow {
   origin: string; destination: string; destinationCity: string; cabin: string; departDate: string; priceInr: number;
   airline: string | null; stops: number; durationMinutes: number | null; deepLink: string | null; fetchedAt: Date; source: string;
+  observedAt: Date | null; gate: string | null;
 }
 export interface PriceFilters { from?: string; to?: string; cabin?: string; month?: string }
 
@@ -15,7 +16,7 @@ export async function latestPrices(db: Db, f: PriceFilters, limit = 60): Promise
     select * from (
       select distinct on (s.route_id, s.cabin, s.depart_date)
         r.origin, r.destination, r.destination_city, s.cabin, s.depart_date, s.depart_month, s.price_inr,
-        s.airline, s.stops, s.duration_minutes, s.deep_link, s.fetched_at, s.source
+        s.airline, s.stops, s.duration_minutes, s.deep_link, s.fetched_at, s.source, s.observed_at, s.gate
       from price_snapshots s join routes r on r.id = s.route_id
       order by s.route_id, s.cabin, s.depart_date, s.fetched_at desc
     ) t
@@ -29,5 +30,6 @@ export async function latestPrices(db: Db, f: PriceFilters, limit = 60): Promise
     cabin: r.cabin as string, departDate: r.depart_date as string, priceInr: Number(r.price_inr), airline: r.airline as string | null,
     stops: Number(r.stops), durationMinutes: r.duration_minutes == null ? null : Number(r.duration_minutes),
     deepLink: r.deep_link as string | null, fetchedAt: new Date(r.fetched_at as string), source: r.source as string,
+    observedAt: r.observed_at ? new Date(r.observed_at as string) : null, gate: (r.gate as string | null) ?? null,
   }));
 }

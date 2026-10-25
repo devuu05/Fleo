@@ -8,6 +8,8 @@ export const config = {
     errorFarePctBelow: num(process.env.ERROR_FARE_PCT_BELOW, 70),
     baselineDays: num(process.env.BASELINE_DAYS, 30),
     // cold start: no flagging until the baseline has this much history
+    // real data only: ignore fares whose price was last seen longer ago than this
+    maxPriceAgeDays: num(process.env.MAX_PRICE_AGE_DAYS, 5),
     minBaselineSnapshots: num(process.env.BASELINE_MIN_SNAPSHOTS, 10),
     minBaselineSpanDays: num(process.env.BASELINE_MIN_SPAN_DAYS, 5),
   },
@@ -23,7 +25,7 @@ export const config = {
     monthsAheadFrom: 2,
     monthsAheadTo: 6,
     cabins: ["economy", "business"] as const,
-    requestsPerSecond: num(process.env.COLLECTOR_RPS, 3),
+    requestsPerSecond: num(process.env.COLLECTOR_RPS, 5),
     maxRetries: 5,
   },
   review: {

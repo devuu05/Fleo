@@ -2,7 +2,7 @@ import { and, gte, lte, sql } from "drizzle-orm";
 import type { Db } from "../db";
 import { deals, priceSnapshots, transitRules } from "../db/schema";
 import { config } from "./config";
-import { baselineUsable, evaluate, passesFilters, shouldRepost, visaWarnings, type BaselineStats } from "./detector-core";
+import { baselineUsable, evaluate, isStale, passesFilters, shouldRepost, visaWarnings, type BaselineStats } from "./detector-core";
 import type { FareVerifier } from "./types";
 
 export interface DetectOptions {
@@ -57,11 +57,12 @@ export async function runDetector(db: Db, o: DetectOptions = {}) {
   const existing = new Map<string, number>();
   for (const d of await db.select().from(deals)) existing.set(key(d.routeId, d.cabin, d.departDate, d.returnDate), d.priceInr);
 
-  const stats = { candidates: cheapest.size, noBaseline: 0, notDeal: 0, filtered: 0, duplicate: 0, unverified: 0, created: 0, reposted: 0 };
+  const stats = { candidates: cheapest.size, noBaseline: 0, notDeal: 0, filtered: 0, duplicate: 0, unverified: 0, stale: 0, created: 0, reposted: 0 };
 
   for (const c of cheapest.values()) {
     const b = baselines.get(key(c.routeId, c.departMonth, c.cabin));
     if (!baselineUsable(b)) { stats.noBaseline++; continue; }
+    if (isStale(c.observedAt, now)) { stats.stale++; continue; }
     const ev = evaluate(c.priceInr, b.medianInr);
     if (!ev.isDeal) { stats.notDeal++; continue; }
     if (!passesFilters(c)) { stats.filtered++; continue; }
@@ -74,7 +75,7 @@ export async function runDetector(db: Db, o: DetectOptions = {}) {
       const v = await o.verifier.verify({
         origin: "", destination: "", cabin: c.cabin as "economy" | "business", departDate: c.departDate, returnDate: c.returnDate,
         priceInr: c.priceInr, airline: c.airline, stops: c.stops, durationMinutes: c.durationMinutes,
-        transitCountries: c.transitCountries, deepLink: c.deepLink,
+        transitCountries: c.transitCountries, deepLink: c.deepLink, observedAt: c.observedAt, gate: c.gate,
       });
       if (!v.ok) { stats.unverified++; continue; }
     }
@@ -83,7 +84,7 @@ export async function runDetector(db: Db, o: DetectOptions = {}) {
       routeId: c.routeId, cabin: c.cabin, departDate: c.departDate, departMonth: c.departMonth, returnDate: ret,
       priceInr: c.priceInr, baselineInr: Math.round(b.medianInr), pctBelow: ev.pctBelow, savingsInr: ev.savingsInr,
       airline: c.airline, stops: c.stops, durationMinutes: c.durationMinutes, isErrorFare: ev.isErrorFare,
-      visaWarnings: visaWarnings(c.transitCountries, c.stops, rules), deepLink: c.deepLink, source: c.source, foundAt: now,
+      visaWarnings: visaWarnings(c.transitCountries, c.stops, rules), deepLink: c.deepLink, observedAt: c.observedAt, gate: c.gate, source: c.source, foundAt: now,
     };
     // status only applies on first insert: a re-post must not undo an admin's approve/reject
     const status = (o.requireReview ?? config.review.required) ? "pending" : "published";

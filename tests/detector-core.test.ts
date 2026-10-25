@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { baselineUsable, evaluate, median, passesFilters, shouldRepost, visaWarnings } from "../src/lib/detector-core";
+import { baselineUsable, evaluate, isStale, median, passesFilters, shouldRepost, visaWarnings } from "../src/lib/detector-core";
 
-const cfg = { minPctBelow: 40, minSavingsInr: 5000, errorFarePctBelow: 70, baselineDays: 30, minBaselineSnapshots: 10, minBaselineSpanDays: 5 };
+const cfg = { minPctBelow: 40, minSavingsInr: 5000, errorFarePctBelow: 70, baselineDays: 30, maxPriceAgeDays: 5, minBaselineSnapshots: 10, minBaselineSpanDays: 5 };
 
 describe("median", () => {
   it("handles odd, even, empty and unsorted input", () => {
@@ -98,5 +98,15 @@ describe("visaWarnings", () => {
   it("warns generically when layover airports are unknown", () => {
     expect(visaWarnings(null, 1, rules)[0].country).toBe("??");
     expect(visaWarnings(null, 0, rules)).toEqual([]);
+  });
+});
+
+describe("isStale", () => {
+  const now = new Date("2026-10-25T00:00:00Z");
+  it("flags prices last seen longer ago than the limit; unknown age is never stale", () => {
+    expect(isStale(null, now, 5)).toBe(false);
+    expect(isStale(new Date("2026-10-21T00:00:00Z"), now, 5)).toBe(false); // 4 days
+    expect(isStale(new Date("2026-10-20T00:00:00Z"), now, 5)).toBe(false); // exactly 5
+    expect(isStale(new Date("2026-10-19T00:00:00Z"), now, 5)).toBe(true); // 6 days
   });
 });

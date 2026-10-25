@@ -15,7 +15,16 @@ interface TpTicket {
   transfers?: number;
   duration?: number; // minutes (total). duration_to / duration_back also exist.
   duration_to?: number;
-  link?: string; // path on aviasales.com, e.g. /search/DEL1505BOM1?t=...
+  gate?: string; // OTA that quoted the price, e.g. "Trip.com"
+  link?: string; // path on aviasales.com; carries search_date=DDMMYYYY (when the price was seen)
+}
+
+/** `search_date=21102026` in the link = 21 Oct 2026, the day a user last saw this price. */
+export function parseSearchDate(link: string): Date | null {
+  const m = /[?&]search_date=(\d{2})(\d{2})(\d{4})/.exec(link);
+  if (!m) return null;
+  const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  return d.getUTCDate() === +m[1] ? d : null; // rejects 31022026-style overflow
 }
 
 export interface TravelpayoutsOptions {
@@ -100,6 +109,8 @@ export class TravelpayoutsProvider implements FareProvider {
       durationMinutes: t.duration_to ?? t.duration ?? null,
       transitCountries: null, // Data API doesn't expose layover airports
       deepLink: t.link ? this.affiliateLink(t.link) : null,
+      observedAt: t.link ? parseSearchDate(t.link) : null,
+      gate: t.gate ?? null,
     };
   }
 

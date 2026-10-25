@@ -49,7 +49,7 @@ export async function runCollector(db: Db, o: CollectOptions) {
               routeId: route.id, cabin, departDate: f.departDate, departMonth: f.departDate.slice(0, 7),
               returnDate: f.returnDate, priceInr: f.priceInr, airline: f.airline, stops: f.stops,
               durationMinutes: f.durationMinutes, transitCountries: f.transitCountries,
-              deepLink: f.deepLink, source: o.provider.name, fetchedAt: now,
+              deepLink: f.deepLink, observedAt: f.observedAt, gate: f.gate, source: o.provider.name, fetchedAt: now,
             });
           }
         } catch (e) {

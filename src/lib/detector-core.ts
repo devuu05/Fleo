@@ -82,3 +82,8 @@ export function visaWarnings(transit: string[] | null, stops: number, rules: Tra
   }
   return out;
 }
+
+/** A fare whose price was last seen too long ago may no longer exist. Unknown age (sample data) is not stale. */
+export function isStale(observedAt: Date | null, now: Date, maxAgeDays = config.detection.maxPriceAgeDays): boolean {
+  return observedAt !== null && now.getTime() - observedAt.getTime() > maxAgeDays * 86_400_000;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TravelpayoutsProvider } from "../src/lib/providers/travelpayouts";
+import { TravelpayoutsProvider, parseSearchDate } from "../src/lib/providers/travelpayouts";
 
 const ticket = (o: object) => ({ origin: "DEL", destination: "BKK", price: 15000.4, airline: "AI", departure_at: "2026-12-05T10:00:00+05:30", transfers: 0, duration: 250, link: "/search/DEL0512BKK1?t=abc", ...o });
 
@@ -34,5 +34,27 @@ describe("TravelpayoutsProvider", () => {
     expect(calls).toHaveLength(0);
     await provider([ticket({})], calls, { businessEnabled: true }).fetchMonth(q);
     expect(calls[0]).toContain("trip_class=1");
+  });
+});
+
+// Shape copied from a real prices_for_dates response (DEL -> BKK, Jan 2027).
+const REAL = {
+  flight_number: "231", origin_airport: "DEL", destination_airport: "DMK", departure_at: "2027-01-28T20:55:00+05:30", airline: "XJ",
+  destination: "BKK", origin: "DEL", price: 13346, gate: "Trip.com", return_transfers: 0, duration: 250, duration_to: 250, duration_back: 0, transfers: 0,
+  link: "/search/DEL2801BKK1?t=XJ18011697_babb&search_date=21102026&expected_price_uuid=01a1&expected_price_currency=inr&expected_price=13346",
+};
+
+describe("real response shape", () => {
+  it("parses search_date as the day the price was seen", () => {
+    expect(parseSearchDate(REAL.link)?.toISOString()).toBe("2026-10-21T00:00:00.000Z");
+    expect(parseSearchDate("/search/X?search_date=31022026")).toBeNull(); // 31 Feb
+    expect(parseSearchDate("/search/X?t=1")).toBeNull();
+  });
+  it("maps a real ticket: INR price, stops, duration, gate, observed date, marker link", async () => {
+    const [f] = await provider([REAL]).fetchMonth({ origin: "DEL", destination: "BKK", month: "2027-01", cabin: "economy" });
+    expect(f).toMatchObject({ priceInr: 13346, airline: "XJ", stops: 0, durationMinutes: 250, gate: "Trip.com", departDate: "2027-01-28" });
+    expect(f.observedAt?.toISOString()).toBe("2026-10-21T00:00:00.000Z");
+    expect(f.deepLink).toContain("marker=123456");
+    expect(f.deepLink).toContain("search_date=21102026"); // original params preserved
   });
 });

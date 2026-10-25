@@ -21,6 +21,10 @@ export interface Fare {
   /** ISO country codes of transit airports. null = provider can't tell. */
   transitCountries: string[] | null;
   deepLink: string | null;
+  /** when the price was last seen in a real user search (from the link), if the source says */
+  observedAt: Date | null;
+  /** the booking site that quoted it (e.g. Trip.com) */
+  gate: string | null;
 }
 
 export interface FareProvider {

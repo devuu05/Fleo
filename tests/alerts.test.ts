@@ -93,6 +93,23 @@ describe("dispatchAlerts", () => {
   });
 });
 
+describe("stale prices", () => {
+  it("skips a would-be deal whose price was last seen too long ago", async () => {
+    const db = await memoryDb();
+    const [r] = await db.insert(routes).values({ origin: "DEL", destination: "BKK", destinationCity: "Bangkok", destinationCountry: "TH" }).returning();
+    const day = (n: number) => new Date(NOW.getTime() - n * 86_400_000);
+    await db.insert(priceSnapshots).values(Array.from({ length: 20 }, (_, i) => ({ routeId: r.id, cabin: "economy", departDate: "2026-09-10", departMonth: "2026-09", priceInr: 40000, stops: 0, source: "travelpayouts", fetchedAt: day(i + 1) })));
+    await db.insert(priceSnapshots).values([
+      { routeId: r.id, cabin: "economy", departDate: "2026-09-10", departMonth: "2026-09", priceInr: 20000, stops: 0, source: "travelpayouts", fetchedAt: NOW, observedAt: day(20) },
+      { routeId: r.id, cabin: "economy", departDate: "2026-09-11", departMonth: "2026-09", priceInr: 20000, stops: 0, source: "travelpayouts", fetchedAt: NOW, observedAt: day(1) },
+    ]);
+    const s = await runDetector(db, { now: NOW });
+    expect(s.stale).toBe(1);
+    expect(s.created).toBe(1);
+    expect((await db.select().from(deals))[0].departDate).toBe("2026-09-11");
+  });
+});
+
 describe("review workflow", () => {
   it("new deals start pending when review is required, and a re-post keeps the admin's decision", async () => {
     const db = await memoryDb();

@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { Nav } from "@/components/Nav";
 import { getAdmin } from "@/lib/auth/admin";
 import { DESTINATIONS, ORIGIN_CITY } from "@/lib/config";
-import { dateLabel, duration, inr, stopsLabel } from "@/lib/format";
+import { ageLabel, dateLabel, duration, inr, stopsLabel } from "@/lib/format";
 import { latestPrices } from "@/lib/prices";
 import { sampleMode } from "@/lib/providers";
 import { getViewer } from "@/lib/viewer";
@@ -43,7 +43,7 @@ export default async function Prices({ searchParams }: PageProps<"/prices">) {
               <h2 className="font-semibold">{p.origin} → {p.destination} <span className="font-normal text-neutral-500">{p.destinationCity} · <span className="capitalize">{p.cabin}</span></span></h2>
               <span className="text-xl font-bold">{inr(p.priceInr)}</span>
             </div>
-            <p className="mt-1 text-xs text-neutral-500">{dateLabel(p.departDate)} · {[p.airline, stopsLabel(p.stops), duration(p.durationMinutes)].filter(Boolean).join(" · ")} · fetched {ago(p.fetchedAt)}</p>
+            <p className="mt-1 text-xs text-neutral-500">{dateLabel(p.departDate)} · {[p.airline, stopsLabel(p.stops), duration(p.durationMinutes)].filter(Boolean).join(" · ")} · {p.observedAt ? `price seen ${ageLabel(p.observedAt)}` : `fetched ${ago(p.fetchedAt)}`}{p.gate ? ` · via ${p.gate}` : ""}</p>
             {p.deepLink && <a href={p.deepLink} target="_blank" rel="sponsored noopener noreferrer" className="mt-3 block rounded-xl bg-blue-600 py-2.5 text-center text-sm font-semibold text-white">Check on Aviasales</a>}
           </article>
         ))}

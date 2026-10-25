@@ -19,10 +19,11 @@ async function main() {
   try { body = JSON.parse(text); } catch { console.log(text.slice(0, 500)); return; }
   console.log("success:", body.success, "| currency:", body.currency, "| results:", body.data?.length ?? 0, body.error ? `| error: ${body.error}` : "");
   for (const t of (body.data ?? []).slice(0, 5)) {
-    console.log(JSON.stringify(t));
+    const seen = /search_date=(\d{2})(\d{2})(\d{4})/.exec(String(t.link ?? ""));
+    console.log(JSON.stringify({ ...t, link: undefined }), seen ? `| price seen ${seen[1]}/${seen[2]}/${seen[3]}` : "");
   }
   const link = body.data?.[0]?.link as string | undefined;
   if (link) console.log("\nexample affiliate link:\nhttps://www.aviasales.com" + link + (link.includes("?") ? "&" : "?") + "marker=" + (marker ?? "<TRAVELPAYOUTS_MARKER>"));
   console.log("\nCheck: currency should be INR; for business, prices should be clearly higher than the economy run; fields transfers/duration/airline present.");
 }
-main().then(() => process.exit(0), (e) => { console.error(e.message); process.exit(1); });
+main().catch((e) => { console.error(e.message); process.exitCode = 1; });

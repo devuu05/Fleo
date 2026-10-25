@@ -1,4 +1,4 @@
-import { dateLabel, duration, inr, stopsLabel } from "@/lib/format";
+import { ageLabel, dateLabel, duration, inr, stopsLabel } from "@/lib/format";
 import type { FeedItem } from "@/lib/feed";
 
 export function DealCard({ deal }: { deal: FeedItem }) {
@@ -47,6 +47,9 @@ export function DealCard({ deal }: { deal: FeedItem }) {
       <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-300">
         {[d.airline, stopsLabel(d.stops), duration(d.durationMinutes)].filter(Boolean).join(" · ")}
       </p>
+      {d.observedAt && (
+        <p className="mt-1 text-xs text-neutral-500">Price last seen {ageLabel(d.observedAt)}{d.gate ? ` via ${d.gate}` : ""}. Confirm on the booking page.</p>
+      )}
       {d.isErrorFare && (
         <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800 dark:bg-red-950 dark:text-red-200">
           ⚠️ Possible error fare — may be cancelled by the airline. Don&apos;t pay for non-refundable extras until confirmed.

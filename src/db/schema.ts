@@ -30,6 +30,8 @@ export const priceSnapshots = pgTable(
     durationMinutes: integer("duration_minutes"),
     transitCountries: jsonb("transit_countries").$type<string[] | null>(), // null = unknown
     deepLink: text("deep_link"),
+    observedAt: timestamp("observed_at", { withTimezone: true }), // when a real user last saw this price (null = unknown)
+    gate: text("gate"),
     source: text("source").notNull(), // sample | travelpayouts
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -57,6 +59,8 @@ export const deals = pgTable(
     isErrorFare: boolean("is_error_fare").notNull().default(false),
     visaWarnings: jsonb("visa_warnings").$type<{ country: string; note: string }[]>().notNull().default([]),
     deepLink: text("deep_link"),
+    observedAt: timestamp("observed_at", { withTimezone: true }),
+    gate: text("gate"),
     source: text("source").notNull(),
     status: text("status").notNull().default("published"), // pending | published | rejected
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),

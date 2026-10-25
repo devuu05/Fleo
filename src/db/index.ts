@@ -11,6 +11,8 @@ export type Db = ReturnType<typeof drizzlePglite<typeof schema>>;
 
 const migrationsFolder = path.join(process.cwd(), "drizzle");
 
+let closer: (() => Promise<void>) | undefined;
+
 async function create(): Promise<Db> {
   const url = process.env.DATABASE_URL;
   if (url) {
@@ -20,6 +22,7 @@ async function create(): Promise<Db> {
     const client = postgres(url, { max: 5 });
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder });
+    closer = () => client.end();
     return db as unknown as Db;
   }
   // Real and sample fares must never share a DB (generated prices would pollute real baselines).
@@ -29,12 +32,18 @@ async function create(): Promise<Db> {
   const client = new PGlite(dir === "memory" ? undefined : dir);
   const db = drizzlePglite(client, { schema });
   await migratePglite(db, { migrationsFolder });
+  closer = () => client.close();
   return db;
 }
 
 const g = globalThis as unknown as { __db?: Promise<Db> };
 export function getDb(): Promise<Db> {
   return (g.__db ??= create());
+}
+
+/** CLI scripts: close the connection so the process can exit by itself (process.exit() crashes libuv on Windows). */
+export async function closeDb() {
+  await closer?.();
 }
 
 export async function memoryDb(): Promise<Db> {

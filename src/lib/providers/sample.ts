@@ -107,6 +107,7 @@ export class SampleProvider implements FareProvider {
         priceInr: Math.round(price / 10) * 10,
         airline: AIRLINES[hash(`${q.origin}${q.destination}${stopRoll}`) % AIRLINES.length],
         stops, durationMinutes: duration, transitCountries: transit,
+        observedAt: null, gate: null,
         deepLink: `https://www.aviasales.com/search/${q.origin}${String(day).padStart(2, "0")}${String(m).padStart(2, "0")}${q.destination}1?marker=${this.o.marker ?? "sample"}`,
       };
     });
