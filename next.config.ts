@@ -2,8 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // PGlite is a WASM package with its own files; keep it out of the bundle.
+  serverExternalPackages: ["@electric-sql/pglite"],
+  // migrations are read from ./drizzle at runtime
+  outputFileTracingIncludes: { "/**": ["./drizzle/**/*"] },
   turbopack: {
     rules: {
       "*.css": {
