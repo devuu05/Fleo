@@ -19,7 +19,7 @@ npm test
 > (stop the server, or point `DATABASE_URL` at a real Postgres, which has no such limit).
 > `npm run db:reset` wipes the local DB.
 
-The feed has a dev-only **"Viewing as Free/Premium"** button (cookie) standing in for auth.
+Sign-in: with no Supabase keys, `/login` is a **dev login** (type any email, nothing is verified; disabled in production). A dev-only button flips `users.is_premium` for the signed-in user, standing in for Razorpay.
 
 ## How it works
 
@@ -55,10 +55,22 @@ The feed has a dev-only **"Viewing as Free/Premium"** button (cookie) standing i
 - The affiliate link is the API's `link` path on `aviasales.com` plus `marker=…`. If you use Travelpayouts' tp.media link shortener, adapt `affiliateLink()`.
 - Prices are cached from user searches and may be days old; add a `FareVerifier` (e.g. Duffel) — `runDetector({ verifier })` already calls it before a deal is published.
 
+## Auth (Supabase)
+
+Passwordless email magic-link via Supabase Auth (`@supabase/ssr`). Fleo's own data stays in Postgres via Drizzle; `users.auth_id` links a row to the Supabase user and `users.is_premium` is what gating reads. Logging in never changes `is_premium`.
+
+1. Create a Supabase project. Copy the project URL and anon/publishable key into `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Set `DATABASE_URL` to the project's Postgres connection string.
+2. Dashboard → Authentication → URL Configuration: add `<your site>/auth/callback` to Redirect URLs (and set the Site URL).
+3. Optional: set `NEXT_PUBLIC_SITE_URL` so links use your public origin.
+4. Supabase's built-in mailer is heavily rate-limited; configure custom SMTP before real traffic.
+5. The tables live in your `public` schema; enable RLS with no policies on them (the app uses the server-side DB connection, not the Supabase client API), so the anon key can't read them.
+
+Flow: `/login` → `POST /auth/login` (emails the link) → `/auth/callback` (exchanges the code for a session cookie) → `src/proxy.ts` keeps the session fresh. `POST /auth/logout` signs out. Redirect targets go through `safeNext()` to block open redirects. **The Supabase path has not been exercised against a live project** (no keys in the build sandbox); only the dev login is end-to-end tested.
+
 ## Tests
 
 `npm test` — detection boundaries (40% / ₹5,000 / 70%), median, cold start, de-dupe/re-post, filters, visa tagging, gating, backoff/rate limiter, Travelpayouts client (mocked fetch), plus an integration test of the detector on in-memory Postgres.
 
 ## Not built yet (later phases)
 
-Auth, Razorpay subscription, email/push/WhatsApp alerts, per-user route preferences, admin review page, live-price verification, a UI for editing `transit_rules`.
+Razorpay subscription, email/push/WhatsApp alerts, per-user route preferences, admin review page, live-price verification, social/phone login, a UI for editing `transit_rules`.

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { devToggleEnabled, PREMIUM_COOKIE } from "@/lib/viewer";
+import { getDb } from "@/db";
+import { devAuthEnabled } from "@/lib/auth/config";
+import { getSessionUser } from "@/lib/auth/session";
+import { setPremium } from "@/lib/auth/users";
 
+// Dev-only stand-in for Razorpay: flips users.is_premium for the signed-in dev user.
 export async function POST(req: Request) {
-  if (!devToggleEnabled()) return new NextResponse("Not found", { status: 404 });
-  const form = await req.formData();
-  const res = NextResponse.redirect(new URL("/", req.url), 303);
-  res.cookies.set(PREMIUM_COOKIE, form.get("premium") === "1" ? "1" : "0", { path: "/", httpOnly: true, sameSite: "lax" });
-  return res;
+  if (!devAuthEnabled()) return new NextResponse("Not found", { status: 404 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.redirect(new URL("/login", req.url), 303);
+  await setPremium(await getDb(), user.id, !user.isPremium);
+  return NextResponse.redirect(new URL("/", req.url), 303);
 }

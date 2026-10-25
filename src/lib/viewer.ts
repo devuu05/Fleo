@@ -1,16 +1,10 @@
-import { cookies } from "next/headers";
 import type { Viewer } from "./gating";
+import { getSessionUser, type SessionUser } from "./auth/session";
 
-export const PREMIUM_COOKIE = "fd_premium";
+export interface AppViewer extends Viewer { user: SessionUser | null }
 
-export const devToggleEnabled = () => process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_PREMIUM_TOGGLE === "1";
-
-/**
- * Phase 1 has no auth. The "user" is a stub whose isPremium flag comes from a
- * dev-only cookie. Phase 2 replaces this with a real session lookup against
- * `users.is_premium`; nothing else needs to change.
- */
-export async function getViewer(): Promise<Viewer> {
-  if (!devToggleEnabled()) return { isPremium: false };
-  return { isPremium: (await cookies()).get(PREMIUM_COOKIE)?.value === "1" };
+/** Gating input: anonymous visitors are free users; signed-in users get users.is_premium. */
+export async function getViewer(): Promise<AppViewer> {
+  const user = await getSessionUser();
+  return { isPremium: user?.isPremium ?? false, user };
 }

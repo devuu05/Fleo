@@ -70,6 +70,7 @@ export const deals = pgTable(
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
+  authId: text("auth_id").unique(), // Supabase auth.users.id (null for dev-mode users)
   isPremium: boolean("is_premium").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

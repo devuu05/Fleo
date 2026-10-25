@@ -4,7 +4,8 @@ import { PremiumToggle } from "@/components/PremiumToggle";
 import { filterOptions, getFeed } from "@/lib/feed";
 import { monthLabel } from "@/lib/format";
 import { sampleMode } from "@/lib/providers";
-import { devToggleEnabled, getViewer } from "@/lib/viewer";
+import { devAuthEnabled } from "@/lib/auth/config";
+import { getViewer } from "@/lib/viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,20 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <h1 className="text-2xl font-extrabold tracking-tight">Fleo</h1>
         <p className="text-sm text-neutral-500">Unusually cheap international fares, spotted automatically.</p>
         {sampleMode() && <p className="mt-2 rounded-lg bg-purple-50 px-3 py-1.5 text-xs text-purple-800 dark:bg-purple-950 dark:text-purple-200">SAMPLE_DATA mode — these fares are generated, not real.</p>}
-        {devToggleEnabled() && <div className="mt-3"><PremiumToggle isPremium={viewer.isPremium} /></div>}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {viewer.user ? (
+            <>
+              <span className="text-neutral-500">{viewer.user.email} · {viewer.isPremium ? "Premium" : "Free"}</span>
+              <form action="/auth/logout" method="post"><button className="underline">Log out</button></form>
+              {devAuthEnabled() && <PremiumToggle isPremium={viewer.isPremium} />}
+            </>
+          ) : (
+            <>
+              <span className="text-neutral-500">Browsing as guest (free plan)</span>
+              <a href="/login" className="rounded-full bg-neutral-900 px-3 py-1 font-semibold text-white dark:bg-white dark:text-neutral-900">Sign in</a>
+            </>
+          )}
+        </div>
       </header>
 
       <form method="get" className="mb-5 grid grid-cols-3 gap-2">
